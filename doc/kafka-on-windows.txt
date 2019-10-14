@@ -1,0 +1,461 @@
+
+	Installing Apache Kafka on Windows and getting familiar with the Kafka CLI
+
+    I took the most part of these instructions from this course:
+
+        Apache Kafka Series - Learn Apache Kafka for Beginners v2, by Stephane Maarek
+        https://www.udemy.com/course/apache-kafka/
+
+    The course is great - I highly recommend it.
+
+1) Install Kafka for Windows following the instructions from:
+
+Installing Apache Kafka on Windows
+https://medium.com/@shaaslam/installing-apache-kafka-on-windows-495f6f2fd3c8
+
+But if you are using Linux, this can be useful:
+Installing Apache Kafka on Linux Debian
+https://www.digitalocean.com/community/tutorials/how-to-install-apache-kafka-on-debian-9
+
+2) Create the folders \data\kafka and \data\zookeeper:
+
+C:\dev\apache\kafka-2.12\data\kafka
+C:\dev\apache\kafka-2.12\data\zookeeper
+
+3) Edit the properties from ZooKeeper and Kafka informing the paths crated on the previous step:
+
+C:\dev\apache\kafka-2.12\config\zookeeper.properties
+dataDir=C:\\dev\\apache\\kafka-2.12\\data\\zookeeper
+
+C:\dev\apache\kafka-2.12\config\server.properties
+log.dirs=C:\\dev\\apache\\kafka-2.12\\data\\kafka
+
+4) Start ZooKeeper Server
+C:\>zkserver
+
+5) Open command prompt and go to your Apache Kafka bin directory and run the following command:
+C:\dev\apache\kafka-2.12\bin\windows>kafka-server-start.bat ..\..\config\server.properties
+
+6) Create some topics:
+C:\>kafka-topics --zookeeper 127.0.0.1:2181 --create --topic first_topic    --partitions 3 --replication-factor 1
+C:\>kafka-topics --zookeeper 127.0.0.1:2181 --create --topic twitter_tweets --partitions 6 --replication-factor 1
+
+7) List the topics:
+
+C:\>kafka-topics --zookeeper 127.0.0.1:2181 --list
+first_topic
+
+8) Get details about the topics:
+
+C:\>kafka-topics --zookeeper 127.0.0.1:2181 --topic first_topic --describe
+
+        Topic: first_topic      Partition       Count:  3       ReplicationFactor: 1     Configs:
+        Topic: first_topic      Partition: 0    Leader: 0       Replicas: 0              Isr: 0
+        Topic: first_topic      Partition: 1    Leader: 0       Replicas: 0              Isr: 0
+        Topic: first_topic      Partition: 2    Leader: 0       Replicas: 0              Isr: 0
+
+9) You can delete a topic (it does not work on Windows - it crashes if you try):
+
+C:\>kafka-topics --zookeeper 127.0.0.1:2181 --topic second_topic --delete
+Topic second_topic is marked for deletion.
+Note: This will have no impact if delete.topic.enable is not set to true
+
+10) Produce messages
+
+C:\>kafka-console-producer --broker-list 127.0.0.1:9092 --topic first_topic
+>Hello Stephane
+>awesome course!
+>learning Kafka
+>just another message :)
+>Terminate batch job (Y/N)? Y
+
+C:\>kafka-console-producer --broker-list 127.0.0.1:9092 --topic first_topic --producer-property acks=all
+>some message that is acked
+>just for fun
+>fun learning!
+>Terminate batch job (Y/N)? y
+
+C:\>kafka-console-producer --broker-list 127.0.0.1:9092 --topic new_topic
+>hey, this topic does not exist!
+[2019-10-07 15:38:45,998] WARN [Producer clientId=console-producer] Error while fetching metadata with correlation id 3 : {new_topic=LEADER_NOT_AVAILABLE} (org.apache.kafka.clients.NetworkClient)
+>another message
+>Terminate batch job (Y/N)? y
+
+C:\>kafka-topics --zookeeper 127.0.0.1:2181 --list
+first_topic
+new_topic
+
+C:\>kafka-topics --zookeeper 127.0.0.1:2181 --topic new_topic --describe
+Topic: new_topic        PartitionCount: 1   ReplicationFactor: 1     Configs:
+Topic: new_topic        Partition: 0        Leader: 0                Replicas: 0     Isr: 0
+
+=> You can edit the default number of partitions on file C:\dev\apache\kafka-2.12\config\server.properties
+
+num.partitions=3
+
+Then restart Kafka server:
+
+C:\dev\apache\kafka-2.12\bin>kafka-server-start.bat ..\config\server.properties
+
+
+
+11) Consume messages
+
+C:\>kafka-console-consumer
+
+C:\>kafka-console-consumer --bootstrap-server 127.0.0.1:9092 --topic first_topic
+C:\>kafka-console-consumer --bootstrap-server 127.0.0.1:9092 --topic twitter_tweets
+
+Open another prompt terminal, and type:
+
+C:\>kafka-console-producer --broker-list 127.0.0.1:9092 --topic first_topic
+>hi, how are you?
+>
+
+You will see on the consumer prompt terminal:
+
+C:\>kafka-console-consumer --bootstrap-server 127.0.0.1:9092 --topic first_topic
+hi, how are you?
+
+Therefore the default behaviour is to only read the new messages because if there were millions of messages,
+we are probably not interested on that. But if you need it, you can run this command:
+
+C:\>kafka-console-consumer --bootstrap-server 127.0.0.1:9092 --topic first_topic --from-beginning
+Hello Stephane
+just another message :)
+some message that is acked
+hi, how are you?
+awesome course!
+just for fun
+this is a new message
+learning Kafka
+fun learning!
+play play play
+
+Important: as you can see, the order of the messages in this consumer is not "total", the order is per partition.
+Because "first_topic" was created with 3 partitions, we saw in the theory lectures that the order is only
+guaranteed at the partition level. If you try a topic with ONE partition only, then you will see a total ordering.
+
+And you keep producing messages on the producer console:
+
+C:\>kafka-console-producer --broker-list 127.0.0.1:9092 --topic first_topic
+>hi, how are you?
+>this is a new message
+>play play play
+>here is another message
+>btw really awesome course
+>
+
+you will have in the consumer console:
+
+C:\>kafka-console-consumer --bootstrap-server 127.0.0.1:9092 --topic first_topic --from-beginning
+Hello Stephane
+just another message :)
+some message that is acked
+hi, how are you?
+awesome course!
+just for fun
+this is a new message
+learning Kafka
+fun learning!
+play play play
+here is another message
+btw really awesome course
+
+12) Consume messages in Group
+
+C:\>kafka-console-consumer --bootstrap-server 127.0.0.1:9092 --topic first_topic --group my-first-application
+
+my-first-application is a group id that is created when we run the command above.
+
+This consumer gets binded to the group my-first-application. If you produce messages for this topic, this consumer will print
+these message on the console. If you open a new console and type the exact same command, you will see that the
+messages being created are sent to just one of the consoles. So you will have the producer console:
+
+C:\>kafka-console-producer --broker-list 127.0.0.1:9092 --topic first_topic
+>hi, how are you?
+>this is a new message
+>play play play
+>here is another message
+>btw really awesome course
+>hello new consumer
+>message 1
+>message 2
+>message 3
+>one message
+>another message
+>yet another message
+>
+
+Comsumer 1:
+C:\>kafka-console-consumer --bootstrap-server 127.0.0.1:9092 --topic first_topic --group my-first-application
+hello new consumer
+message 1
+message 2
+message 3
+yet another message
+
+Comsumer 2:
+C:\>kafka-console-consumer --bootstrap-server 127.0.0.1:9092 --topic first_topic --group my-first-application
+one message
+another message
+
+As you can see, Consumer 1 got the messages not sent to Consumer 2, and vice versa, because the consumers in the group share the load.
+
+You can create a Consumer 3 to see how the load is shared among the consumer.
+
+If you shutdown Consumer 2, and then bind Consumer 1 to a new group by running this command:
+
+C:\>kafka-console-consumer --bootstrap-server 127.0.0.1:9092 --topic first_topic --group my-second-application --from-beginning
+
+You will get all messages produced since the beginning:
+
+C:\>kafka-console-consumer --bootstrap-server 127.0.0.1:9092 --topic first_topic --group my-second-application --from-beginning
+Hello Stephane
+just another message :)
+some message that is acked
+hi, how are you?
+here is another message
+message 1
+one message
+awesome course!
+just for fun
+this is a new message
+btw really awesome course
+message 2
+another message
+learning Kafka
+fun learning!
+play play play
+hello new consumer
+message 3
+yet another message
+
+If you shutdown Consumer 1, and run the same command, you do not get any message because the message is read
+only once. But you will get all new messages.
+
+C:\>kafka-console-producer --broker-list 127.0.0.1:9092 --topic first_topic
+>hi, how are you?
+>this is a new message
+>play play play
+>here is another message
+>btw really awesome course
+>hello new consumer
+>message 1
+>message 2
+>message 3
+>one message
+>another message
+>yet another message
+>new message 1
+>new message 2
+>
+
+
+C:\>kafka-console-producer --broker-list 127.0.0.1:9092 --topic first_topic
+>hi, how are you?
+>this is a new message
+>play play play
+>here is another message
+>btw really awesome course
+>hello new consumer
+>message 1
+>message 2
+>message 3
+>one message
+>another message
+>yet another message
+>new message 1
+>new message 2
+>
+
+Type
+
+C:\>kafka-consumer-groups
+
+to see the documentation for this command.
+
+This tool helps to list all consumer groups, describe a consumer group, 
+delete consumer group info, or reset consumer group offsets.
+
+C:\>kafka-consumer-groups --bootstrap-server localhost:9092 --list
+my-first-application
+my-second-application
+
+
+C:\>kafka-consumer-groups --bootstrap-server localhost:9092 --describe --group my-second-application
+
+Consumer group 'my-second-application' has no active members.
+
+GROUP                 TOPIC           PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG             CONSUMER-ID     HOST            CLIENT-ID
+my-second-application first_topic     0          8               8               0               -               -               -
+my-second-application first_topic     1          7               7               0               -               -               -
+my-second-application first_topic     2          6               6               0               -               -               -
+
+C:\>
+
+LAG = 0 means that the consumer is reading and has read all the data.
+
+C:\>kafka-consumer-groups --bootstrap-server localhost:9092 --describe --group my-first-application
+
+Consumer group 'my-first-application' has no active members.
+
+GROUP                TOPIC           PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG             CONSUMER-ID     HOST            CLIENT-ID
+my-first-application first_topic     0          7               8               1               -               -               -
+my-first-application first_topic     1          6               7               1               -               -               -
+my-first-application first_topic     2          6               6               0               -               -               -
+
+C:\>
+
+That means that we have 2 messages that is lagging (1 + 1 = 2).
+We can verify this by running the command:
+
+C:\>kafka-console-consumer --bootstrap-server localhost:9092 --topic first_topic --group my-first-application
+new message 1
+new message 2
+
+Now if we run the command again:
+
+C:\>kafka-consumer-groups --bootstrap-server localhost:9092 --describe --group my-first-application
+
+GROUP                TOPIC           PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG             CONSUMER-ID                                     HOST            CLIENT-ID
+my-first-application first_topic     0          8               8               0               consumer-1-f7c9d543-5ec8-4fad-b98f-2cf5b9a89410 /9.80.211.165   consumer-1
+my-first-application first_topic     1          7               7               0               consumer-1-f7c9d543-5ec8-4fad-b98f-2cf5b9a89410 /9.80.211.165   consumer-1
+my-first-application first_topic     2          6               6               0               consumer-1-f7c9d543-5ec8-4fad-b98f-2cf5b9a89410 /9.80.211.165   consumer-1
+
+C:\>
+
+We see that the sum of the lags is zero.
+
+If you want to reset the offsets, run this command:
+
+C:\>kafka-consumer-groups --bootstrap-server localhost:9092 --group my-first-application --reset-offsets --to-earliest --execute --topic first_topic
+
+GROUP                          TOPIC                          PARTITION  NEW-OFFSET
+my-first-application           first_topic                    0          0
+my-first-application           first_topic                    2          0
+my-first-application           first_topic                    1          0
+
+C:\>
+
+So now what happen if we restart our consumer? You should see all the data, all over again:
+
+C:\>kafka-console-consumer --bootstrap-server 127.0.0.1:9092 --topic first_topic --group my-first-application
+Hello Stephane
+just another message :)
+some message that is acked
+hi, how are you?
+here is another message
+message 1
+one message
+new message 1
+awesome course!
+just for fun
+this is a new message
+btw really awesome course
+message 2
+another message
+new message 2
+learning Kafka
+fun learning!
+play play play
+hello new consumer
+message 3
+yet another message
+
+Now if you ask to describe the groups, you will see that the sum of the lags is zero:
+
+C:\>kafka-consumer-groups --bootstrap-server localhost:9092 --describe --group my-first-application
+
+GROUP                TOPIC           PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG             CONSUMER-ID                                     HOST            CLIENT-ID
+my-first-application first_topic     0          8               8               0               consumer-1-fab73174-8f9f-4708-a113-650e758fd5b6 /9.80.211.165   consumer-1
+my-first-application first_topic     1          7               7               0               consumer-1-fab73174-8f9f-4708-a113-650e758fd5b6 /9.80.211.165   consumer-1
+my-first-application first_topic     2          6               6               0               consumer-1-fab73174-8f9f-4708-a113-650e758fd5b6 /9.80.211.165   consumer-1
+
+C:\>
+
+Now if we want to shift the offset to +2 or -2, we can run this command:
+
+C:\>kafka-consumer-groups --bootstrap-server localhost:9092 --group my-first-application --reset-offsets --shift-by 2 --execute --topic first_topic
+[2019-10-07 18:05:30,949] WARN New offset (10) is higher than latest offset for topic partition first_topic-0. Value will be set to 8 (kafka.admin.ConsumerGroupCommand$)
+[2019-10-07 18:05:30,951] WARN New offset (8) is higher than latest offset for topic partition first_topic-2. Value will be set to 6 (kafka.admin.ConsumerGroupCommand$)
+[2019-10-07 18:05:30,952] WARN New offset (9) is higher than latest offset for topic partition first_topic-1. Value will be set to 7 (kafka.admin.ConsumerGroupCommand$)
+
+GROUP                          TOPIC                          PARTITION  NEW-OFFSET
+my-first-application           first_topic                    0          8
+my-first-application           first_topic                    2          6
+my-first-application           first_topic                    1          7
+
+C:\>kafka-consumer-groups --bootstrap-server localhost:9092 --group my-first-application --reset-offsets --shift-by -2 --execute --topic first_topic
+
+GROUP                          TOPIC                          PARTITION  NEW-OFFSET
+my-first-application           first_topic                    0          6
+my-first-application           first_topic                    2          4
+my-first-application           first_topic                    1          5
+
+C:\>
+
+
+As you can see, we can shift forward or backward for your kafka consumer groups.
+
+C:\>kafka-console-consumer --bootstrap-server 127.0.0.1:9092 --topic first_topic --group my-first-application
+one message
+new message 1
+another message
+new message 2
+message 3
+yet another message
+
+You see 6 messages because we shift 2 positions for each member of the group (2 x 3 = 6).
+
+==============
+
+CLI Options that are good to know
+The CLI have many options, but here are the other that are most commonly used:
+
+Producer with keys:
+
+kafka-console-producer --broker-list 127.0.0.1:9092 --topic first_topic --property parse.key=true --property key.separator=,
+> key,value
+> another key,another value
+
+Consumer with keys
+
+kafka-console-consumer --bootstrap-server 127.0.0.1:9092 --topic first_topic --from-beginning --property print.key=true --property key.separator=,
+
+
+===================
+
+What about UIs as a replacement for Kafka CLI? Kafka does not come bundled with a UI, but here are some recommendations:
+
+Kafka Tools
+http://kafkatool.com/download.html
+
+Kafka Manager (for managing Kafka and instead of using CLI)
+https://github.com/yahoo/kafka-manager
+
+KafkaCat
+https://github.com/edenhill/kafkacat
+https://medium.com/@coderunner/debugging-with-kafkacat-df7851d21968
+
+=====================
+
+If you want a Spring Boot project with Kafka, take a look at:
+
+How to Work with Apache Kafka in Your Spring Boot Application
+https://www.confluent.io/blog/apache-kafka-spring-boot-application
+
+======================
+
+
+C:\>kafka-consumer-groups --bootstrap-server localhost:9092 --group my-fourth-application --describe
+
+Consumer group 'my-fourth-application' has no active members.
+
+GROUP                 TOPIC           PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG             CONSUMER-ID     HOST            CLIENT-ID
+my-fourth-application first_topic     0          24              24              0               -               -               -
+my-fourth-application first_topic     1          19              19              0               -               -               -
+my-fourth-application first_topic     2          27              27              0               -               -               -
+
+C:\>
+

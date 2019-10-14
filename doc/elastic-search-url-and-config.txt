@@ -1,0 +1,256 @@
+ElasticSearch 101
+https://www.udemy.com/course/apache-kafka/learn/lecture/11567080#overview
+
+ElasticSearch Free:
+https://bonsai.io
+
+If you do not want to install ElasticSearch locally, get an account at Bonsai.IO
+Once you have an account there, look for "Elasticsearch Access" that will provide 
+the 4 values you need:
+
+	https://aaaaaaaaaa:bbbbbbbbbb@cccccccccccccccccccccccccccccccccccccccccccccccccc:443
+
+	elasticsearch.userName=aaaaaaaaaa
+	elasticsearch.passWord=bbbbbbbbbb
+	elasticsearch.hostName=cccccccccccccccccccccccccccccccccccccccccccccccccc
+	elasticsearch.port=443
+
+userName is also known as access_key
+passWord is also known as access_secret
+
+-----------------------------------------------------------------------
+Interactive Console
+Home Sweet Home  KAFKA_COURSE
+https://app.bonsai.io/clusters/kafka-course-7373137644/console
+
+From info from this site:
+Cluster Health
+https://www.elastic.co/guide/en/elasticsearch/reference/7.4/cluster-health.html
+
+Try those commands on the GET text box:
+
+/
+{
+  "name": "ip-172-31-18-82",
+  "cluster_name": "elasticsearch",
+  "cluster_uuid": "eLg8rIW3TV2lcSMM-pNXfQ",
+  "version": {
+    "number": "7.2.0",
+    "build_flavor": "oss",
+    "build_type": "tar",
+    "build_hash": "508c38a",
+    "build_date": "2019-06-20T15:54:18.811730Z",
+    "build_snapshot": false,
+    "lucene_version": "8.0.0",
+    "minimum_wire_compatibility_version": "6.8.0",
+    "minimum_index_compatibility_version": "6.0.0-beta1"
+  },
+  "tagline": "You Know, for Search"
+}
+
+
+/_cat/health?v
+epoch      timestamp cluster       status node.total node.data shards pri relo init unassign pending_tasks max_task_wait_time active_shards_percent
+1570902590 17:49:50  elasticsearch green           3         3      0   0    0    0        0             0                  -                100.0%
+
+/_cluster/health?wait_for_status=yellow&timeout=50s
+{
+  "cluster_name": "elasticsearch",
+  "status": "green",
+  "timed_out": false,
+  "number_of_nodes": 3,
+  "number_of_data_nodes": 3,
+  "active_primary_shards": 0,
+  "active_shards": 0,
+  "relocating_shards": 0,
+  "initializing_shards": 0,
+  "unassigned_shards": 0,
+  "delayed_unassigned_shards": 0,
+  "number_of_pending_tasks": 0,
+  "number_of_in_flight_fetch": 0,
+  "task_max_waiting_in_queue_millis": 0,
+  "active_shards_percent_as_number": 100
+}
+
+/_cat/nodes?v
+ip            heap.percent ram.percent cpu load_1m load_5m load_15m node.role master name
+172.31.1.154                                                        mdi       *      ip-172-31-1-154
+172.31.73.255                                                       mdi       -      ip-172-31-73-255
+172.31.18.82                                                        mdi       -      ip-172-31-18-82
+
+List All Indices:
+GET /_cat/indices?v
+health status index uuid pri rep docs.count docs.deleted store.size pri.store.size
+(you got only system indices because we do not start any index yet)
+
+We need to create an index to store the tweets:
+PUT /twitter
+{
+  "acknowledged": true,
+  "shards_acknowledged": true,
+  "index": "twitter"
+}
+
+List All Indices again:
+GET /_cat/indices?v
+health status index                     uuid                   pri rep docs.count docs.deleted store.size pri.store.size
+green  open   twitter mI6Es5KkRyWzgj-Akoxc2A   1   1          0            0       460b           230b
+
+Let's insert data into our index
+https://www.elastic.co/guide/en/elasticsearch/reference/7.4/getting-started-index.html
+
+We want to INSERT doc in json format. So we do:
+PUT /twitter/tweets/1
+{
+"course": "Kafka for Beginners",
+"instructor": "Stephane Maarek",
+"module": "ElasticSearch"
+}
+
+{
+  "_index": "twitter",
+  "_type": "tweets",
+  "_id": "1",
+  "_version": 1,
+  "result": "created",
+  "_shards": {
+    "total": 2,
+    "successful": 2,
+    "failed": 0
+  },
+  "_seq_no": 0,
+  "_primary_term": 1
+}
+
+We want to UPDATE the data:
+PUT /twitter/tweets/1
+{
+"course": "Kafka for Beginners",
+"instructor": "Stephane Maarek",
+"module": "ElasticSearch"
+}
+
+{
+  "_index": "twitter",
+  "_type": "tweets",
+  "_id": "1",
+  "_version": 2,
+  "result": "updated",
+  "_shards": {
+    "total": 2,
+    "successful": 2,
+    "failed": 0
+  },
+  "_seq_no": 1,
+  "_primary_term": 1
+}
+
+We want to QUERY the data:
+GET /twitter/tweets/1
+{
+  "_index": "twitter",
+  "_type": "tweets",
+  "_id": "1",
+  "_version": 2,
+  "_seq_no": 1,
+  "_primary_term": 1,
+  "found": true,
+  "_source": {
+    "course": "Kafka for Beginners",
+    "instructor": "Stephane Maarek",
+    "module": "ElasticSearch"
+  }
+}
+
+We want to DELETE the data:
+DELETE /twitter/tweets/1
+{
+  "_index": "twitter",
+  "_type": "tweets",
+  "_id": "1",
+  "_version": 3,
+  "result": "deleted",
+  "_shards": {
+    "total": 2,
+    "successful": 2,
+    "failed": 0
+  },
+  "_seq_no": 2,
+  "_primary_term": 1
+}
+
+Now if want to QUERY the data:
+GET /twitter/tweets/1
+{
+  "_index": "twitter",
+  "_type": "tweets",
+  "_id": "1",
+  "found": false
+}
+
+If we want to delete the index:
+DELETE /twitter
+
+{
+  "acknowledged": true
+}
+
+-----------------------------------------------------------------------
+
+To check if the message was sent, considering you have the message id fIrfx20BALpIJHp86Z-W,
+open the console:
+
+GET /twitter/tweets/fIrfx20BALpIJHp86Z-W
+
+{
+  "_index": "twitter",
+  "_type": "tweets",
+  "_id": "fIrfx20BALpIJHp86Z-W",
+  "_version": 1,
+  "_seq_no": 5,
+  "_primary_term": 1,
+  "found": true,
+  "_source": {
+    "created_at": "Sat Oct 12 14:09:07 +0000 2019",
+    "id": 1183021782166577200,
+    "id_str": "1183021782166577152",
+    "text": "RT @janvlug: Here a list of Free and Open Source Software (#FOSS) that gives freedom to the *user*:\n@fedora\n@libreoffice\n@firefox\n@signalap…",
+    "source": "<a href=\"https://mobile.twitter.com\" rel=\"nofollow\">Twitter Web App</a>",
+    "truncated": false,
+    "in_reply_to_status_id": null,
+    "in_reply_to_status_id_str": null,
+    "in_reply_to_user_id": null,
+    "in_reply_to_user_id_str": null,
+    "in_reply_to_screen_name": null,
+    "user": {
+      "id": 838929935934898200,
+      "id_str": "838929935934898176",
+      "name": "Ɛyhooh",
+      "screen_name": "eyhooh",
+      "location": "Mufflins au Groland",
+      "url": "http://t.me/chezmoh",
+      "description": "\"Some cause happiness wherever they go; others whenever they go\"   - Oscar Wilde",
+      .
+      .
+      .
+    },
+    "favorited": false,
+    "retweeted": false,
+    "filter_level": "low",
+    "lang": "en",
+    "timestamp_ms": "1570889347007"
+  }
+}
+
+-----------------------------------------------------------------------
+
+Starting Java Project - Kafka Consumer
+
+https://search.maven.org/artifact/org.elasticsearch.client/elasticsearch-rest-high-level-client/7.4.0/jar
+
+<dependency>
+  <groupId>org.elasticsearch.client</groupId>
+  <artifactId>elasticsearch-rest-high-level-client</artifactId>
+  <version>7.4.0</version>
+</dependency>
+
